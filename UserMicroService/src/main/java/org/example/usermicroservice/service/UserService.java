@@ -12,4 +12,5 @@ public interface UserService {
     AuthResponse signup(SignupRequest signupRequest);
     AuthResponse signin(SigninRequest signinRequest);
     void refreshToken(HttpServletRequest request, HttpServletResponse response) throws IOException;
+    void signout();
 }

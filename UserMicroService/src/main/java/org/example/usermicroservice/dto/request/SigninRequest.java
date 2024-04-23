@@ -10,7 +10,6 @@ public class SigninRequest {
     @Email
     private String email;
 
-    // TODO: Add validation for password
     @NotEmpty
     private String password;
 }

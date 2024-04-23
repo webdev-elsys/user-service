@@ -11,13 +11,17 @@ import org.example.usermicroservice.dto.response.AuthResponse;
 import org.example.usermicroservice.entity.User;
 import org.example.usermicroservice.repository.UserRepository;
 import org.example.usermicroservice.service.UserService;
+import org.example.usermicroservice.shared.exception.InvalidCredentialsException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+
+import static org.example.usermicroservice.mapper.UserMapper.USER_MAPPER;
 
 @Service
 @RequiredArgsConstructor
@@ -30,17 +34,12 @@ public class UserServiceImpl implements UserService {
     @Override
     public AuthResponse signup(SignupRequest signupRequest) {
         if (userRepository.existsByEmail(signupRequest.getEmail())) {
-            throw new RuntimeException("User with email: " + signupRequest.getEmail() + " already exists!");
+            throw new InvalidCredentialsException("Email already exists!");
         }
 
-        User user = new User();
-        user.setEmail(signupRequest.getEmail());
-        user.setUsername(signupRequest.getUsername());
+        User user = USER_MAPPER.fromSignupRequest(signupRequest);
         user.setPassword(passwordEncoder.encode(signupRequest.getPassword()));
-
-        String refreshToken = jwtService.generateRefreshToken(user);
-
-        user.setRefreshToken(refreshToken);
+        user.setRefreshToken(jwtService.generateRefreshToken(user));
 
         userRepository.save(user);
 
@@ -54,8 +53,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public AuthResponse signin(SigninRequest signinRequest) {
         User user = userRepository.findByEmail(signinRequest.getEmail())
-                .orElseThrow(() -> new RuntimeException("Unable to find user with email: "
-                        + signinRequest.getEmail() + "!"));
+                .orElseThrow(() -> new InvalidCredentialsException("Email not found!"));
 
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
@@ -69,6 +67,7 @@ public class UserServiceImpl implements UserService {
         response.setAccessToken(jwtService.generateToken(user));
         response.setRefreshToken(refreshToken);
         user.setRefreshToken(refreshToken);
+        userRepository.save(user);
 
         return response;
     }
@@ -98,5 +97,18 @@ public class UserServiceImpl implements UserService {
                 new ObjectMapper().writeValue(response.getOutputStream(), authResponse);
             }
         }
+    }
+
+    @Override
+    public void signout() {
+        User user = userRepository.findByEmail(
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication()
+                        .getName()
+        ).orElseThrow();
+
+        user.setRefreshToken(null);
+        userRepository.save(user);
     }
 }

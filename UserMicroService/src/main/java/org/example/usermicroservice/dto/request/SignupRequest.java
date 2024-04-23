@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
 
 @Data
-public class SignupRequest {// TODO: Change
+public class SignupRequest {
     @NotEmpty
     @Email
     private String email;
